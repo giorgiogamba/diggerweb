@@ -16,7 +16,7 @@ initialization_error = None
 
 if DISCOGS_USER_AGENT and DISCOGS_TOKEN:
     try:
-        discogs_client_instance = discogs_client.Client(DISCOGS_USER_AGENT, user_token=DISCOGS_TOKEN)
+        discogs_client_instance = discogs_client.Client('diggerweb/1.0', consumer_key=DISCOGS_USER_AGENT, consumer_secret=DISCOGS_TOKEN)
     except Exception as e:
         print(f"ERRORE CRITICO: Impossibile inizializzare Discogs Client: {e}")
         initialization_error = f"Errore interno del server: Discogs Client non configurato ({e})"
