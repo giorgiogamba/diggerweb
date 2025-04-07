@@ -183,3 +183,4 @@ __pycache__/
 db.sqlite3
 /static/
 /media/
+.DS_Store
