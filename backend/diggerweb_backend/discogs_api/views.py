@@ -3,6 +3,7 @@
 from django.shortcuts import render
 
 import os
+import traceback
 import discogs_client
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -54,10 +55,7 @@ class DiscogsSearchView(APIView):
         search_type = request.query_params.get('type', 'release')
 
         if not query:
-            return Response(
-                {"error": "Il parametro 'q' (query) è obbligatorio."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "Missing mandatory 'q' ('query') parameter."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             # Executed research
@@ -96,22 +94,9 @@ class DiscogsSearchView(APIView):
             return Response(response_data, status=status.HTTP_200_OK)
 
         except discogs_client.exceptions.HTTPError as http_err:
-            print(f"Discogs API HTTP Error: {http_err.status_code} - {http_err.msg}")
-            return Response(
-                {"error": f"Errore dall'API Discogs ({http_err.status_code}): {http_err.msg}"},
-                status=http_err.status_code # Restituisci lo stesso codice di stato di Discogs
-            )
+            return Response({"error": f"Discogs API error ({http_err.status_code}): {http_err.msg}"}, status=http_err.status_code)
         except discogs_client.exceptions.DiscogsAPIError as api_err:
-            print(f"Discogs API Logic Error: {api_err}")
-            return Response(
-                {"error": f"Errore API Discogs: {api_err}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": f"Discogs API error: {api_err}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as e:
-            print(f"Errore generico nella vista di ricerca Discogs: {e}")
-            import traceback
             traceback.print_exc()
-            return Response(
-                {"error": "Errore interno del server durante la ricerca."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": "Server internal error during research"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
