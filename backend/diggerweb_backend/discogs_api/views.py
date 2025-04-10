@@ -21,7 +21,18 @@ if DISCOGS_USER_AGENT and DISCOGS_TOKEN:
 
     # #TODO refactor exeception handling
     try:
-        discogs_client_instance = discogs_client.Client('diggerweb/1.0', consumer_key=DISCOGS_USER_AGENT, consumer_secret=DISCOGS_TOKEN)
+        discogs_client_instance = discogs_client.Client('diggerweb/1.0')
+
+        discogs_client_instance.set_consumer_key(DISCOGS_USER_AGENT, DISCOGS_TOKEN)
+        token, secret, url = discogs_client_instance.get_authorize_url()
+
+        # Return authorization URL and waiting for user to provide requested code
+        print("authorize_url: ", url)
+        oauth_verifier = input("Verification code : ")
+
+        # Executes authorization
+        access_token, access_secret = discogs_client_instance.get_access_token(oauth_verifier)
+
     except Exception as e:
         print(f"Critical error: impossible to authorize Discogs client {e}")
         initialization_error = f" ({e})"
