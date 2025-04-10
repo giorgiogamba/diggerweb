@@ -41,13 +41,8 @@ else:
     initialization_error = "Server side error: unable to find Discogs environment variables."
 
 class DiscogsSearchView(APIView):
-    """
-    Vista API per cercare su Discogs tramite la libreria discogs_client.
-    Accetta parametri 'q' (query) e 'type' (opzionale).
-    """
-    def get(self, request, *args, **kwargs):
 
-        # Controlla se il client è stato inizializzato correttamente
+    def get(self, request, *args, **kwargs):
         if initialization_error:
             return Response({"error": initialization_error}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         if not discogs_client_instance:
