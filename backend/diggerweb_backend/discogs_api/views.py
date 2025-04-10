@@ -1,3 +1,5 @@
+# Copyright 2025 Giorgio Gamba
+
 from django.shortcuts import render
 
 import os
