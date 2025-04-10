@@ -172,3 +172,15 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Backend keys
+backend/.env
+
+backend_env/
+.env
+__pycache__/
+*.pyc
+db.sqlite3
+/static/
+/media/
+.DS_Store
