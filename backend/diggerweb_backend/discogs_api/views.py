@@ -8,24 +8,26 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status # Per usare codici di stato HTTP
 
-# Inizializza il client Discogs una sola volta all'avvio del modulo
-# Recuperando le credenziali dalle variabili d'ambiente (caricate in settings.py)
+# Executes module authorization once that the module is started or re-saved in development
 DISCOGS_USER_AGENT = os.getenv('DISCOGS_USER_AGENT')
 DISCOGS_TOKEN = os.getenv('DISCOGS_API_TOKEN')
 
 discogs_client_instance = None
+
+# If populated, it means that the client was not properly initialized
 initialization_error = None
 
 if DISCOGS_USER_AGENT and DISCOGS_TOKEN:
+
+    # #TODO refactor exeception handling
     try:
         discogs_client_instance = discogs_client.Client('diggerweb/1.0', consumer_key=DISCOGS_USER_AGENT, consumer_secret=DISCOGS_TOKEN)
     except Exception as e:
-        print(f"ERRORE CRITICO: Impossibile inizializzare Discogs Client: {e}")
-        initialization_error = f"Errore interno del server: Discogs Client non configurato ({e})"
+        print(f"Critical error: impossible to authorize Discogs client {e}")
+        initialization_error = f" ({e})"
 else:
-    error_msg = "ERRORE CRITICO: DISCOGS_USER_AGENT o DISCOGS_API_TOKEN non trovati nelle variabili d'ambiente."
-    print(error_msg)
-    initialization_error = "Errore interno del server: Variabili Discogs mancanti."
+    print("Unable to find Discogs authorization values inside environment variables.")
+    initialization_error = "Server side error: unable to find Discogs environment variables."
 
 class DiscogsSearchView(APIView):
     """
@@ -52,7 +54,7 @@ class DiscogsSearchView(APIView):
             )
 
         try:
-            # Esegui la ricerca usando discogs_client
+            # Executed research
             results = discogs_client_instance.search(query, type=search_type)
 
             # Prepara i dati per la risposta JSON
@@ -63,32 +65,27 @@ class DiscogsSearchView(APIView):
             items_per_page = 20 # Puoi renderlo un parametro
 
             if results and results.count > 0:
-                # Itera sui risultati della pagina richiesta
                 for result in results.page(page_num):
-                     # Estrai i dati rilevanti. L'attributo '.data' è spesso utile.
                      item_data = {
                          'id': getattr(result, 'id', None),
-                         'type': search_type, # Aggiungiamo il tipo cercato
+                         'type': search_type,
                          'title': getattr(result, 'title', 'N/A'),
-                         'thumb': getattr(result, 'thumb', ''), # URL miniatura
-                         'cover_image': getattr(result, 'cover_image', ''), # URL copertina
+                         'thumb': getattr(result, 'thumb', ''),
+                         'cover_image': getattr(result, 'cover_image', ''),
                          'year': getattr(result, 'year', None),
-                         # Aggiungi altri campi che ti interessano, es:
                          'country': getattr(result, 'country', None),
-                         'formats': getattr(result, 'formats', None), # Questo potrebbe essere complesso
-                         'uri': getattr(result, 'uri', None), # URI Discogs
-                         # 'data': result.data # Opzione: includi tutti i dati grezzi
+                         'formats': getattr(result, 'formats', None),
+                         'uri': getattr(result, 'uri', None),
                      }
                      output_results.append(item_data)
 
-            # Costruisci la risposta finale con risultati e paginazione
+            # Build resulting page
             response_data = {
                 'pagination': {
                     'page': page_num,
                     'pages': results.pages if results else 0,
-                    'per_page': items_per_page, # O la dimensione reale della pagina se diversa
+                    'per_page': items_per_page,
                     'items': results.count if results else 0,
-                    # 'urls': results.urls # URL per pagine successive/precedenti
                 },
                 'results': output_results
             }
