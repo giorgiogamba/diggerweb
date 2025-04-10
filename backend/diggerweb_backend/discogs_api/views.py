@@ -43,15 +43,15 @@ else:
 class DiscogsSearchView(APIView):
 
     def get(self, request, *args, **kwargs):
+        
+        # Client authorization check
         if initialization_error:
             return Response({"error": initialization_error}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         if not discogs_client_instance:
-             return Response({"error": "Errore interno del server: Discogs Client non disponibile."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+             return Response({"error": "Discogs client not available"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-        # Prendi i parametri dalla query string della richiesta GET
         query = request.query_params.get('q', None)
-        search_type = request.query_params.get('type', 'release') # Default a 'release'
+        search_type = request.query_params.get('type', 'release')
 
         if not query:
             return Response(
@@ -63,12 +63,10 @@ class DiscogsSearchView(APIView):
             # Executed research
             results = discogs_client_instance.search(query, type=search_type)
 
-            # Prepara i dati per la risposta JSON
-            # Convertiamo gli oggetti Result in dizionari semplici
+            # Convert results to JSON format
             output_results = []
-            # Prendiamo solo la prima pagina (puoi aggiungere paginazione)
-            page_num = int(request.query_params.get('page', 1)) # Supporta parametro 'page'
-            items_per_page = 20 # Puoi renderlo un parametro
+            page_num = int(request.query_params.get('page', 1))
+            items_per_page = 20 # #TODO refactor
 
             if results and results.count > 0:
                 for result in results.page(page_num):
