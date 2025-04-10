@@ -74,6 +74,30 @@ function App()
     handleSearch(1);
   }
 
+  const ReleaseInfoComponent = ({data}) =>
+  {
+    const headers = Object.keys(data[0]);
+    const rows = data.map(item => Object.values(item));
+
+    return (
+      <table>
+        <thead>
+          <tr>
+            {headers.map(header => <th key={header}>{header}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) =>
+            (
+              <tr key={index}>
+                {row.map((cell, index) => <td key={index}>{cell}</td>)}
+              </tr>
+            ))}
+        </tbody>
+      </table>
+    );
+  }
+
   return (
     <div className="App">
       <h1>diggerweb</h1>
@@ -111,7 +135,7 @@ function App()
               <br />
               <small>Type: {item.type} - ID: {item.id}</small>
               {/* Populate here in order to show other data */}
-              {item.formats && <p><small>Formats: {JSON.stringify(item.formats)}</small></p> }
+              {item.formats && <p><small>Formats: <ReleaseInfoComponent data={item.formats}/></small></p> }
             </div>
           </div>
         ))}
