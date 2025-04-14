@@ -4,11 +4,12 @@ import './App.css';
 
 // Points to the Discogs proxy (website backend)
 const BACKEND_API_URL = 'http://127.0.0.1:8000/api/discogs/search/';
+const QUERY_PARAM = 'username';
 
 function App()
 {
   const [query, setQuery] = useState('');
-  const [searchType, setSearchType] = useState('username');
+  const [searchType, setSearchType] = useState(QUERY_PARAM);
   const [results, setResults] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(false);
