@@ -7,7 +7,8 @@ import traceback
 import discogs_client
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status # Per usare codici di stato HTTP
+from rest_framework import status
+import time
 
 # Executes module authorization once that the module is started or re-saved in development
 DISCOGS_USER_AGENT = os.getenv('DISCOGS_USER_AGENT')
@@ -27,7 +28,7 @@ if DISCOGS_USER_AGENT and DISCOGS_TOKEN:
         discogs_client_instance.set_consumer_key(DISCOGS_USER_AGENT, DISCOGS_TOKEN)
         token, secret, url = discogs_client_instance.get_authorize_url()
 
-        # Return authorization URL and waiting for user to provide requested code
+        # Returns authorization URL and waiting for user to provide requested code
         print("authorize_url: ", url)
         oauth_verifier = input("Verification code : ")
 
@@ -42,6 +43,27 @@ else:
     initialization_error = "Server side error: unable to find Discogs environment variables."
 
 class DiscogsSearchView(APIView):
+        
+    def searchUserInventory(self, username):
+
+        print("Searching releases for username " + str(username))
+
+        user = discogs_client_instance.user(str(username))
+
+        time.sleep(1) # In order to support discogs API restrictions
+
+        releases = {}
+        for listing in user.inventory:
+            releaseId = listing.release.id
+
+            stats_path = f"https://api.discogs.com/marketplace/stats/{releaseId}"
+            stats_response = discogs_client_instance._get(stats_path)
+
+            releases[listing.url] = stats_response.get('num_for_sale')
+
+            time.sleep(1) # In order to support discogs API restrictions
+
+        return releases
 
     def get(self, request, *args, **kwargs):
         
@@ -51,43 +73,29 @@ class DiscogsSearchView(APIView):
         if not discogs_client_instance:
              return Response({"error": "Discogs client not available"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        query = request.query_params.get('q', None)
-        search_type = request.query_params.get('type', 'release')
-
-        if not query:
-            return Response({"error": "Missing mandatory 'q' ('query') parameter."}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
-            # Executed research
-            results = discogs_client_instance.search(query, type=search_type)
+            results = self.searchUserInventory(request.query_params.get('q'))
 
-            # Convert results to JSON format
-            output_results = []
             page_num = int(request.query_params.get('page', 1))
             items_per_page = 20 # #TODO refactor
 
-            if results and results.count > 0:
-                for result in results.page(page_num):
-                     item_data = {
-                         'id': getattr(result, 'id', None),
-                         'type': search_type,
-                         'title': getattr(result, 'title', 'N/A'),
-                         'thumb': getattr(result, 'thumb', ''),
-                         'cover_image': getattr(result, 'cover_image', ''),
-                         'year': getattr(result, 'year', None),
-                         'country': getattr(result, 'country', None),
-                         'formats': getattr(result, 'formats', None),
-                         'uri': getattr(result, 'uri', None),
-                     }
-                     output_results.append(item_data)
+            output_results = []
+
+            for url, items in results.items():
+                item_data = {
+                    'url': url,
+                    'items': items
+                }
+
+                output_results.append(item_data)
 
             # Build resulting page
             response_data = {
                 'pagination': {
                     'page': page_num,
-                    'pages': results.pages if results else 0,
+                    'pages': 0,
                     'per_page': items_per_page,
-                    'items': results.count if results else 0,
+                    'items': 0
                 },
                 'results': output_results
             }

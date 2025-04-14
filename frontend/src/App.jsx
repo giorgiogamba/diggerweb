@@ -126,16 +126,9 @@ function App()
 
       <div className="results">
         {results.length > 0 && results.map((item) => (
-          <div key={item.id || item.uri} className="result-item">
-            <img src={item.thumb || item.cover_image || 'https://via.placeholder.com/60?text=N/A'} alt={item.title} />
+          <div key={item.url || item.items} className="result-item">
             <div>
-              <strong>{item.title}</strong>
-              {item.year && ` (${item.year})`}
-              {item.country && ` - ${item.country}`}
-              <br />
-              <small>Type: {item.type} - ID: {item.id}</small>
-              {/* Populate here in order to show other data */}
-              {item.formats && <p><small>Formats: <ReleaseInfoComponent data={item.formats}/></small></p> }
+              {`${item.url} -- (${item.items})`}
             </div>
           </div>
         ))}
