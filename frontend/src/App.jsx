@@ -8,7 +8,7 @@ const BACKEND_API_URL = 'http://127.0.0.1:8000/api/discogs/search/';
 function App()
 {
   const [query, setQuery] = useState('');
-  const [searchType, setSearchType] = useState('release');
+  const [searchType, setSearchType] = useState('username');
   const [results, setResults] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(false);
