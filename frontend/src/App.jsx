@@ -86,12 +86,6 @@ function App()
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search on Discogs"
         />
-        <select value={searchType} onChange={(e) => setSearchType(e.target.value)}>
-          <option value="release">Release</option>
-          <option value="artist">Artist</option>
-          <option value="label">Label</option>
-          <option value="master">Master Release</option>
-        </select>
         <button type="submit" disabled={loading}>
           {loading ? 'Loading...' : 'Search'}
         </button>
