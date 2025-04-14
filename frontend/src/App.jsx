@@ -105,23 +105,6 @@ function App()
         ))}
          {results.length === 0 && !loading && !error && pagination && <p>No search result found</p>}
       </div>
-
-      {pagination && pagination.pages > 1 && (
-        <div className="pagination">
-          <button
-            onClick={() => handleSearch(pagination.page - 1)}
-            disabled={loading || pagination.page <= 1}>
-          Previous
-          </button>
-          <span> Page {pagination.page} dof {pagination.pages} (Tot: {pagination.items}) </span>
-            <button
-              onClick={() => handleSearch(pagination.page + 1)}
-              disabled={loading || pagination.page >= pagination.pages}>
-          Next
-          </button>
-        </div>
-      )}
-
     </div>
   );
 }
