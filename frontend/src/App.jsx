@@ -6,6 +6,12 @@ import './App.css';
 const BACKEND_API_URL = 'http://127.0.0.1:8000/api/discogs/search/';
 const QUERY_PARAM = 'username';
 
+// User facing texts
+const APPLICATION_TITLE = 'digger';
+const LOADING = 'LOADING...';
+const SEARCH = 'SEARCH';
+const NO_RESULTS = 'No search results found';
+
 function setEmptyResult()
 {
   setResults([]);
@@ -81,7 +87,7 @@ function App()
 
   return (
     <div className="App">
-      <h1>diggerweb</h1>
+      <h1>{`${APPLICATION_TITLE}`}</h1>
 
       <form onSubmit={handleSubmit}>
         <input
@@ -91,13 +97,13 @@ function App()
           placeholder="Search on Discogs"
         />
         <button type="submit" disabled={loading}>
-          {loading ? 'Loading...' : 'Search'}
+          {loading ? LOADING : SEARCH}
         </button>
       </form>
 
       {error && <p className="error">{error}</p>}
 
-      {loading && <p>Loading...</p>}
+      {loading && <p>{`${LOADING}`}</p>}
 
       <div className="results">
         {results.length > 0 && results.map((item) => (
@@ -107,7 +113,7 @@ function App()
             </div>
           </div>
         ))}
-         {results.length === 0 && !loading && !error && pagination && <p>No search result found</p>}
+         {results.length === 0 && !loading && !error && pagination && <p>{`${NO_RESULTS}`}</p>}
       </div>
     </div>
   );
