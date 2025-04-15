@@ -63,6 +63,8 @@ class DiscogsSearchView(APIView):
 
             time.sleep(1) # In order to support discogs API restrictions
 
+            break
+
         return releases
 
     def get(self, request, *args, **kwargs):

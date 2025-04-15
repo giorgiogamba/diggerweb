@@ -6,6 +6,12 @@ import './App.css';
 const BACKEND_API_URL = 'http://127.0.0.1:8000/api/discogs/search/';
 const QUERY_PARAM = 'username';
 
+function setEmptyResult()
+{
+  setResults([]);
+  setPagination(null);
+}
+
 function App()
 {
   const [query, setQuery] = useState('');
@@ -30,8 +36,7 @@ function App()
     // Waits cleaning results while loading
     if (page === 1)
     {
-      setResults([]);
-      setPagination(null);
+      setEmptyResult();
     }
 
     try
@@ -59,8 +64,7 @@ function App()
       const errorMsg = err.response?.data?.error || err.message || 'Unknown error during research';
 
       setError(`Error: ${errorMsg}`);
-      setResults([]);
-      setPagination(null);
+      setEmptyResult();
     }
     finally
     {
