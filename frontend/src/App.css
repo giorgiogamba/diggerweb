@@ -2,41 +2,54 @@
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #365f70;
+  color: #ECECF1;
   text-align: center;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.App {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 20px;
+  box-sizing: border-box;
+  transition: justify-content 0.5s ease-in-out;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.App h1 {
+  color: #c5c5d2;
+  font-weight: 600;
+  margin-bottom: 40px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.App form {
+  display: flex;
+  width: 80%;
+  max-width: 700px;
+  margin-bottom: 30px;
+  position: relative;
+  margin-top: auto;
+  margin-bottom: auto;
+  transition: margin-top 0.6s ease-in-out;
 }
 
-.card {
-  padding: 2em;
+.App input[type="text"] {
+  flex-grow: 1; 
+  padding: 15px 20px;
+  font-size: 1rem;
+  border: 1px solid #565869;
+  background-color: #40414F; 
+  color: #ECECF1;
+  border-radius: 8px 0 0 8px;
+  outline: none;
 }
 
-.read-the-docs {
-  color: #888;
-}
