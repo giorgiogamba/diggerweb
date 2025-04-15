@@ -4,11 +4,24 @@ import './App.css';
 
 // Points to the Discogs proxy (website backend)
 const BACKEND_API_URL = 'http://127.0.0.1:8000/api/discogs/search/';
+const QUERY_PARAM = 'username';
+
+// User facing texts
+const APPLICATION_TITLE = 'digger';
+const LOADING = 'LOADING...';
+const SEARCH = 'SEARCH';
+const NO_RESULTS = 'No search results found';
+
+function setEmptyResult()
+{
+  setResults([]);
+  setPagination(null);
+}
 
 function App()
 {
   const [query, setQuery] = useState('');
-  const [searchType, setSearchType] = useState('username');
+  const [searchType, setSearchType] = useState(QUERY_PARAM);
   const [results, setResults] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -29,8 +42,7 @@ function App()
     // Waits cleaning results while loading
     if (page === 1)
     {
-      setResults([]);
-      setPagination(null);
+      setEmptyResult();
     }
 
     try
@@ -58,8 +70,7 @@ function App()
       const errorMsg = err.response?.data?.error || err.message || 'Unknown error during research';
 
       setError(`Error: ${errorMsg}`);
-      setResults([]);
-      setPagination(null);
+      setEmptyResult();
     }
     finally
     {
@@ -74,33 +85,9 @@ function App()
     handleSearch(1);
   }
 
-  const ReleaseInfoComponent = ({data}) =>
-  {
-    const headers = Object.keys(data[0]);
-    const rows = data.map(item => Object.values(item));
-
-    return (
-      <table>
-        <thead>
-          <tr>
-            {headers.map(header => <th key={header}>{header}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) =>
-            (
-              <tr key={index}>
-                {row.map((cell, index) => <td key={index}>{cell}</td>)}
-              </tr>
-            ))}
-        </tbody>
-      </table>
-    );
-  }
-
   return (
     <div className="App">
-      <h1>diggerweb</h1>
+      <h1>{`${APPLICATION_TITLE}`}</h1>
 
       <form onSubmit={handleSubmit}>
         <input
@@ -109,20 +96,14 @@ function App()
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search on Discogs"
         />
-        <select value={searchType} onChange={(e) => setSearchType(e.target.value)}>
-          <option value="release">Release</option>
-          <option value="artist">Artist</option>
-          <option value="label">Label</option>
-          <option value="master">Master Release</option>
-        </select>
         <button type="submit" disabled={loading}>
-          {loading ? 'Loading...' : 'Search'}
+          {loading ? LOADING : SEARCH}
         </button>
       </form>
 
       {error && <p className="error">{error}</p>}
 
-      {loading && <p>Loading...</p>}
+      {loading && <p>{`${LOADING}`}</p>}
 
       <div className="results">
         {results.length > 0 && results.map((item) => (
@@ -132,25 +113,8 @@ function App()
             </div>
           </div>
         ))}
-         {results.length === 0 && !loading && !error && pagination && <p>No search result found</p>}
+         {results.length === 0 && !loading && !error && pagination && <p>{`${NO_RESULTS}`}</p>}
       </div>
-
-      {pagination && pagination.pages > 1 && (
-        <div className="pagination">
-          <button
-            onClick={() => handleSearch(pagination.page - 1)}
-            disabled={loading || pagination.page <= 1}>
-          Previous
-          </button>
-          <span> Page {pagination.page} dof {pagination.pages} (Tot: {pagination.items}) </span>
-            <button
-              onClick={() => handleSearch(pagination.page + 1)}
-              disabled={loading || pagination.page >= pagination.pages}>
-          Next
-          </button>
-        </div>
-      )}
-
     </div>
   );
 }
