@@ -3,7 +3,7 @@ import axios from 'axios';
 import './App.css';
 
 // Points to the Discogs proxy (website backend)
-const BACKEND_API_URL = 'http://127.0.0.1:8000/api/discogs/search/';
+const BACKEND_SEARCH_URL = 'http://127.0.0.1:8000/api/discogs/search/';
 const QUERY_PARAM = 'username';
 
 // User facing texts
@@ -21,7 +21,6 @@ function setEmptyResult()
 function App()
 {
   const [query, setQuery] = useState('');
-  const [searchType, setSearchType] = useState(QUERY_PARAM);
   const [results, setResults] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -48,13 +47,12 @@ function App()
     try
     {
       // Makes DB search using proxy
-      const response = await axios.get(BACKEND_API_URL,
+      const response = await axios.get(BACKEND_SEARCH_URL,
       {
         params:
         {
           q: query,
-          type: searchType,
-          page: page,
+          type: QUERY_PARAM,
         },
       });
 
