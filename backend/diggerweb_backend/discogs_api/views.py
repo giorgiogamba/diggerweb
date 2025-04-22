@@ -14,7 +14,7 @@ import time
 DISCOGS_USER_AGENT = os.getenv('DISCOGS_USER_AGENT')
 DISCOGS_TOKEN = os.getenv('DISCOGS_API_TOKEN')
 
-discogs_client_instance = None
+dc = None
 
 # If populated, it means that the client was not properly initialized
 initialization_error = None
@@ -23,17 +23,17 @@ if DISCOGS_USER_AGENT and DISCOGS_TOKEN:
 
     # #TODO refactor exeception handling
     try:
-        discogs_client_instance = discogs_client.Client('diggerweb/1.0')
+        dc = discogs_client.Client('diggerweb/1.0')
 
-        discogs_client_instance.set_consumer_key(DISCOGS_USER_AGENT, DISCOGS_TOKEN)
-        token, secret, url = discogs_client_instance.get_authorize_url()
+        dc.set_consumer_key(DISCOGS_USER_AGENT, DISCOGS_TOKEN)
+        token, secret, url = dc.get_authorize_url()
 
         # Returns authorization URL and waiting for user to provide requested code
         print("authorize_url: ", url)
         oauth_verifier = input("Verification code : ")
 
         # Executes authorization
-        access_token, access_secret = discogs_client_instance.get_access_token(oauth_verifier)
+        access_token, access_secret = dc.get_access_token(oauth_verifier)
 
     except Exception as e:
         print(f"Critical error: impossible to authorize Discogs client {e}")
@@ -48,7 +48,7 @@ class DiscogsSearchView(APIView):
 
         print("Searching releases for username " + str(username))
 
-        user = discogs_client_instance.user(str(username))
+        user = dc.user(str(username))
 
         time.sleep(1) # In order to support discogs API restrictions
 
@@ -57,7 +57,7 @@ class DiscogsSearchView(APIView):
             releaseId = listing.release.id
 
             stats_path = f"https://api.discogs.com/marketplace/stats/{releaseId}"
-            stats_response = discogs_client_instance._get(stats_path)
+            stats_response = dc._get(stats_path)
 
             releases[listing.url] = stats_response.get('num_for_sale')
 
@@ -72,7 +72,7 @@ class DiscogsSearchView(APIView):
         # Client authorization check
         if initialization_error:
             return Response({"error": initialization_error}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        if not discogs_client_instance:
+        if not dc:
              return Response({"error": "Discogs client not available"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         try:
