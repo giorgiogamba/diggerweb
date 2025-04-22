@@ -11,21 +11,21 @@ from rest_framework import status
 import time
 
 # Executes module authorization once that the module is started or re-saved in development
-DISCOGS_USER_AGENT = os.getenv('DISCOGS_USER_AGENT')
-DISCOGS_TOKEN = os.getenv('DISCOGS_API_TOKEN')
+DISCOGS_CONSUMER_KEY = os.getenv('DISCOGS_CONSUMER_KEY')
+DISCOGS_CONSUMER_SECRET = os.getenv('DISCOGS_CONSUMER_SECRET')
 
 dc = None
 
 # If populated, it means that the client was not properly initialized
 initialization_error = None
 
-if DISCOGS_USER_AGENT and DISCOGS_TOKEN:
+if DISCOGS_CONSUMER_KEY and DISCOGS_CONSUMER_SECRET:
 
     # #TODO refactor exeception handling
     try:
         dc = discogs_client.Client('diggerweb/1.0')
 
-        dc.set_consumer_key(DISCOGS_USER_AGENT, DISCOGS_TOKEN)
+        dc.set_consumer_key(DISCOGS_CONSUMER_KEY, DISCOGS_CONSUMER_SECRET)
         token, secret, url = dc.get_authorize_url()
 
         # Returns authorization URL and waiting for user to provide requested code
