@@ -13,18 +13,23 @@ Inside your terminal execute the following commands
 
 ```
 $ git clone https://github.com/giorgiogamba/diggerweb.git
-$ cd duggerweb/backend/diggerweb_backend
+$ cd diggerweb/backend/diggerweb_backend
 $ python manage.py runserver
 ```
 Once the program response a successful server start up, it will provide a link you have to navigate to, and authorize the access of the application to your Discogs account.
 Copy the provided code and paste it inside the terminal under "verification code: "
 
-Once you received a successful start-up message, copy paste the following URL inside a broser page
+Once you entered the code, the server is ready to responde. 
 
+At this point, you have to start the frontend page to execute queries:
+
+From the project root:
 ```
-http://127.0.0.1:8000/api/discogs/search/?q=Nevermind
+$ cd frontend
+$ npm run dev
 ```
 
-You should see JSON code printed on you screen containing relevant information
+The terminal will answer you with a link to a localhost port, something like https://localhost::5173. Enter this code inside a browser and then you will have access to the frontend page.
+
 
 
