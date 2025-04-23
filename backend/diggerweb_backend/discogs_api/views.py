@@ -9,47 +9,98 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 import time
+from django.urls import reverse
+from .utils import save_access_token, load_access_token
+
+APPLICATION_AGENT_NAME = 'diggerweb/1.0'
+
+DISCOGS_API_ERROR = 'Discogs API error'
+ERROR_KEY = 'error'
 
 # Executes module authorization once that the module is started or re-saved in development
-DISCOGS_USER_AGENT = os.getenv('DISCOGS_USER_AGENT')
-DISCOGS_TOKEN = os.getenv('DISCOGS_API_TOKEN')
+DISCOGS_CONSUMER_KEY = os.getenv('DISCOGS_CONSUMER_KEY')
+DISCOGS_CONSUMER_SECRET = os.getenv('DISCOGS_CONSUMER_SECRET')
 
-discogs_client_instance = None
+DISCOGS_REQUEST_TOKEN_KEY = 'discogs_request_token'
+DISCOGS_REQUEST_TOKEN_SECRET = 'discogs_request_secret'
 
-# If populated, it means that the client was not properly initialized
-initialization_error = None
+DISCOGS_AUTHORIZE_KEY = 'discogs-authorize'
 
-if DISCOGS_USER_AGENT and DISCOGS_TOKEN:
+# Handles the authentication request from frontend to backend
+class DiscogsAuthorizeView(APIView):
 
-    # #TODO refactor exeception handling
-    try:
-        discogs_client_instance = discogs_client.Client('diggerweb/1.0')
+    def get(self, request, *args, **kwargs):
+        client = discogs_client.Client(APPLICATION_AGENT_NAME)
+        client.set_consumer_key(DISCOGS_CONSUMER_KEY, DISCOGS_CONSUMER_SECRET)
 
-        discogs_client_instance.set_consumer_key(DISCOGS_USER_AGENT, DISCOGS_TOKEN)
-        token, secret, url = discogs_client_instance.get_authorize_url()
+        try:
+            callback_url = request.build_absolute_uri(reverse('discogs-callback'))
+            request_token, request_secret, url = client.get_authorize_url(callback_url=callback_url)
 
-        # Returns authorization URL and waiting for user to provide requested code
-        print("authorize_url: ", url)
-        oauth_verifier = input("Verification code : ")
+            request.session[DISCOGS_REQUEST_TOKEN_KEY] = request_token
+            request.session[DISCOGS_REQUEST_TOKEN_SECRET] = request_secret
 
-        # Executes authorization
-        access_token, access_secret = discogs_client_instance.get_access_token(oauth_verifier)
+            return Response({'authorization_url': url}, status=status.HTTP_200_OK)
 
-    except Exception as e:
-        print(f"Critical error: impossible to authorize Discogs client {e}")
-        initialization_error = f" ({e})"
-else:
-    print("Unable to find Discogs authorization values inside environment variables.")
-    initialization_error = "Server side error: unable to find Discogs environment variables."
+        except discogs_client.exceptions.DiscogsAPIError as api_error:
+            return Response({ERROR_KEY: f"{DISCOGS_API_ERROR}: {api_error}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as e:
+            traceback.print_exc()
+            return Response({ERROR_KEY: f"Server internal error during authorization initiation: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+# Handles authentication flow completion and return to application
+class DiscogsCallbackView(APIView):
+
+    def get(self, request, *args, **kwargs):
+
+        oauth_verifier = request.query_params.get('oauth_verifier')
+        oauth_token = request.query_params.get('oauth_token')
+        if not oauth_verifier or not oauth_token:
+            return Response({ERROR_KEY: "Missing oauth_verifier or oauth_token in callback"}, status=status.HTTP_400_BAD_REQUEST)
+
+        client = discogs_client.Client(APPLICATION_AGENT_NAME)
+        client.set_consumer_key(DISCOGS_CONSUMER_KEY, DISCOGS_CONSUMER_SECRET)
+
+        if not client:
+            return Response({ERROR_KEY: "Initialization error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        try:
+            request_token = request.session.get(DISCOGS_REQUEST_TOKEN_KEY)
+            request_secret = request.session.get(DISCOGS_REQUEST_TOKEN_SECRET)
+
+            if not request_token or not request_secret:
+                 return Response({ERROR_KEY: "Request token/secret not found (session expired or invalid?). Please restart authorization."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Verify token correspondence
+            if oauth_token != request_token:
+                return Response({ERROR_KEY: "OAuth token mismatch."}, status=status.HTTP_400_BAD_REQUEST)
+
+            client.set_token(request_token, request_secret)
+
+            # Get access tokens and cleanup temporary ones
+            access_token, access_secret = client.get_access_token(oauth_verifier)
+            save_access_token(access_token, access_secret)
+            del request.session[DISCOGS_REQUEST_TOKEN_KEY]
+            del request.session[DISCOGS_CONSUMER_SECRET]
+
+            # TODO close popup via javascript
+            return Response({"message": "Authorization successful! You can close this window."}, status=status.HTTP_200_OK)
+
+        except discogs_client.exceptions.HTTPError as http_error:
+            return Response({ERROR_KEY: f"{DISCOGS_API_ERROR} during token exchange ({http_error.status_code}): {http_error.msg}"}, status=http_error.status_code)
+        except discogs_client.exceptions.DiscogsAPIError as api_error:
+             return Response({ERROR_KEY: f"{DISCOGS_API_ERROR} during token exchange: {api_error}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as e:
+            traceback.print_exc()
+            return Response({ERROR_KEY: f"Server internal error during callback processing: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# Handles Discogs DB researches
 class DiscogsSearchView(APIView):
         
-    def searchUserInventory(self, username):
-
+    def searchUserInventory(self, client, username):
         print("Searching releases for username " + str(username))
 
-        user = discogs_client_instance.user(str(username))
-
+        user = client.user(str(username))
         time.sleep(1) # In order to support discogs API restrictions
 
         releases = {}
@@ -57,56 +108,75 @@ class DiscogsSearchView(APIView):
             releaseId = listing.release.id
 
             stats_path = f"https://api.discogs.com/marketplace/stats/{releaseId}"
-            stats_response = discogs_client_instance._get(stats_path)
+            stats_response = client._get(stats_path)
 
             releases[listing.url] = stats_response.get('num_for_sale')
 
             time.sleep(1) # In order to support discogs API restrictions
 
-            break
-
         return releases
 
     def get(self, request, *args, **kwargs):
-        
-        # Client authorization check
-        if initialization_error:
-            return Response({"error": initialization_error}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        if not discogs_client_instance:
-             return Response({"error": "Discogs client not available"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        access_token, access_secret = load_access_token()
+
+        if not access_token or not access_secret:
+            return Response({ERROR_KEY: "Discogs authorization required.", "authorize_url": request.build_absolute_uri(reverse(DISCOGS_AUTHORIZE_KEY))}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Create and authorize new client
+        client = discogs_client.Client(APPLICATION_AGENT_NAME)
 
         try:
-            results = self.searchUserInventory(request.query_params.get('q'))
+            client.set_consumer_key(DISCOGS_CONSUMER_KEY, DISCOGS_CONSUMER_SECRET)
+            client.set_token(access_token, access_secret)
 
+        except Exception as e:
+            # No credentials, reauthorize
+            return Response({
+                ERROR_KEY: f"Invalid or expired Discogs credentials. Please re-authorize. ({e})",
+                "authorize_url": request.build_absolute_uri(reverse(DISCOGS_AUTHORIZE_KEY))
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        username = request.query_params.get('q')
+        if not username:
+             return Response({ERROR_KEY: "Missing 'q' parameter (username)."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            results = self.searchUserInventory(client, username)
             page_num = int(request.query_params.get('page', 1))
-            items_per_page = 20 # #TODO refactor
+            items_per_page = 20
 
             output_results = []
 
             for url, items in results.items():
-                item_data = {
-                    'url': url,
-                    'items': items
-                }
-
+                item_data = {'url': url, 'items': items}
                 output_results.append(item_data)
 
-            # Build resulting page
             response_data = {
-                'pagination': {
-                    'page': page_num,
-                    'pages': 0,
-                    'per_page': items_per_page,
-                    'items': 0
-                },
+                'pagination': {'page': page_num, 'pages': 0, 'per_page': items_per_page, 'items': 0},
                 'results': output_results
             }
             return Response(response_data, status=status.HTTP_200_OK)
 
-        except discogs_client.exceptions.HTTPError as http_err:
-            return Response({"error": f"Discogs API error ({http_err.status_code}): {http_err.msg}"}, status=http_err.status_code)
-        except discogs_client.exceptions.DiscogsAPIError as api_err:
-            return Response({"error": f"Discogs API error: {api_err}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except discogs_client.exceptions.HTTPError as http_error:
+            if http_error.status_code == 401:
+                 return Response({
+                      "error": f"Discogs API authentication error ({http_error.status_code}). Please re-authorize. ({http_error.msg})",
+                      "authorize_url": request.build_absolute_uri(reverse(DISCOGS_AUTHORIZE_KEY))
+                 }, status=http_error.status_code)
+            else:
+                 return Response({"error": f"{DISCOGS_API_ERROR} ({http_error.status_code}): {http_error.msg}"}, status=http_error.status_code)
+        except discogs_client.exceptions.DiscogsAPIError as api_error:
+            return Response({"error": f"{DISCOGS_API_ERROR}: {api_error}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as e:
+            traceback.print_exc()
+            return Response({"error": "Server internal error during research"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+        except discogs_client.exceptions.HTTPError as http_error:
+            return Response({"error": f"{DISCOGS_API_ERROR} ({http_error.status_code}): {http_error.msg}"}, status=http_error.status_code)
+        except discogs_client.exceptions.DiscogsAPIError as api_error:
+            return Response({"error": f"{DISCOGS_API_ERROR}: {api_error}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as e:
             traceback.print_exc()
             return Response({"error": "Server internal error during research"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
