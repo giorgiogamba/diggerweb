@@ -17,68 +17,60 @@ const SEARCH = 'SEARCH';
 const NO_RESULTS = 'No search results found for this page or query.';
 const AUTHORIZE_PROMPT = 'Authorization required. Please authorize with Discogs to perform searches.';
 const AUTHORIZE_BUTTON_TEXT = 'Authorize with Discogs';
-
-function setEmptyResult()
-{
-  setResults([]);
-  setPagination(null);
-}
+const PREVIOUS_PAGE = 'Previous';
+const NEXT_PAGE = 'Next';
 
 function App()
 {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
-  const [pagination, setPagination] = useState(null);
+  const [pagination, setPagination] = useState(null); // Stores { page, pages, per_page, items, urls } from backend
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [authorizeUrl, setAuthorizeUrl] = useState(null);
+  const [authorizeUrl, setAuthorizeUrl] = useState(null); // Stores the URL received from backend for authorization
 
-  const setEmptyResult = useCallback(() => {
-    setResults([]);
-    setPagination(null);
-  }, []);
-  
+  // Function to handle the authorization popup window
   const handleAuthorize = () => {
     if (authorizeUrl)
     {
       const popupWidth = 600;
       const popupHeight = 700;
-      const left = window.screen.width / 2 - popupWidth / 2;
-      const right = window.screen.height / 2 - popupHeight / 2;
-      window.open
-      (
-        authorizeUrl,
-        'discogsAuthorizationPopup',
-        'width=${popupWidth},height=${popupHeight},top=${top},left=${left}'
-      );
+      const left = (window.screen.width / 2) - (popupWidth / 2);
+      const top = (window.screen.height / 2) - (popupHeight / 2);
+      const windowFeatures = `width=${popupWidth},height=${popupHeight},top=${top},left=${left}`;
+
+      window.open(authorizeUrl, 'discogsAuthorizationPopup', windowFeatures);
     }
     else
     {
-      console.error("Failed authorization");
-      setError("Could not initialize authorization");
+      console.error("Authorization URL not available.");
+      setError("Could not initiate authorization. Try searching first to trigger the process if needed.");
     }
   }
 
-
-  // Makes a research in the database, looking for just page 1
+  // Makes a research in the database for a specific page
   const handleSearch = async (page = 1) =>
   {
-    if (!query.trim())
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery)
     {
       setError('No search item provided. Please add one');
-      setEmptyResult();
+      setResults([]);
+      setPagination(null);
       setAuthorizeUrl(null);
       return;
     }
 
+    console.log(`Searching for '${trimmedQuery}', page ${page}, items per page ${ITEMS_PER_PAGE}`);
     setLoading(true);
     setError(null);
-    setAuthorizeUrl(null);
-    
-    // Waits cleaning results while loading
+    setAuthorizeUrl(null); 
+
+    // Clear results only if it's a new search (page 1)
     if (page === 1)
     {
-      setEmptyResult();
+      setResults([]);
+      setPagination(null);
     }
 
     try
@@ -95,7 +87,8 @@ function App()
       });
 
       console.log("Backend response:", response.data);
-      
+
+      // Update results and pagination state from backend response
       setResults(response.data.results || []);
       setPagination(response.data.pagination || null);
 
@@ -144,7 +137,6 @@ function App()
     }
   };
 
-  // Invoked when the user presses the "Search" button
   const handleSubmit = (e) =>
   {
     e.preventDefault();
@@ -195,8 +187,27 @@ function App()
             {item.error && <p className="error">Note: {item.error}</p>}
           </div>
         ))}
-        {results.length === 0 && !loading && !error && pagination && <p>{`${NO_RESULTS}`}</p>}
       </div>
+
+      {pagination && pagination.pages > 1 && !loading && (
+        <div className="pagination-controls">
+          <button
+            onClick={() => handleSearch(pagination.page - 1)}
+            disabled={pagination.page <= 1 || loading} // Disable if on first page or loading
+          >
+            {PREVIOUS_PAGE}
+          </button>
+
+          <span> Page {pagination.page} of {pagination.pages} (Total items: {pagination.items}) </span>
+
+          <button
+            onClick={() => handleSearch(pagination.page + 1)}
+            disabled={pagination.page >= pagination.pages || loading} // Disable if on last page or loading
+          >
+            {NEXT_PAGE}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
