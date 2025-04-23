@@ -11,6 +11,7 @@ from rest_framework import status
 import time
 from django.urls import reverse
 from .utils import save_access_token, load_access_token
+from urllib.parse import urlencode
 
 APPLICATION_AGENT_NAME = 'diggerweb/1.0'
 
@@ -25,6 +26,9 @@ DISCOGS_REQUEST_TOKEN_KEY = 'discogs_request_token'
 DISCOGS_REQUEST_TOKEN_SECRET = 'discogs_request_secret'
 
 DISCOGS_AUTHORIZE_KEY = 'discogs-authorize'
+
+BASE_API_URL = 'https://api.discogs.com'
+DISCOGS_MARKETPLACE_STATS_URL = "https://api.discogs.com/marketplace/stats/"
 
 # Handles the authentication request from frontend to backend
 class DiscogsAuthorizeView(APIView):
@@ -154,7 +158,7 @@ class DiscogsSearchView(APIView):
                     listing_url = listing.url
 
                     # TODO add caching if going back to prev page
-                    stats_path = f"https://api.discogs.com/marketplace/stats/{releaseId}"
+                    stats_path = f"{DISCOGS_MARKETPLACE_STATS_URL}{releaseId}"
                     stats_response = client._get(stats_path)
 
                     num_for_sale = stats_response.get('num_for_sale') if stats_response else None
@@ -218,6 +222,123 @@ class DiscogsSearchView(APIView):
                  print(f"Could not retrieve pagination details after page index error: {e}")
 
              return [], pagination_details
+        
+    def searchUserInventory_API_Filtered(self, client, username, page_num, items_per_page):
+
+        print(f"Looking for \"For Sale\" items at page {page_num} for user {username} ({items_per_page} items/pag)")
+
+        # Default pagination info in case of early error
+        pagination_info = {'page': page_num, 'pages': 0, 'per_page': items_per_page, 'items': 0, 'urls': {}}
+
+        output_results = []
+
+        try:
+            # Build the complete research path
+            endpoint = f'/users/{username}/inventory'
+
+            params = {
+                'status': 'For Sale',
+                'page': page_num,
+                'per_page': items_per_page,
+            }
+
+            query_string = urlencode(params)
+            full_path_with_query = f"{BASE_API_URL}{endpoint}?{query_string}"
+
+            # Execyte call and check results
+            response_data = client._get(full_path_with_query)
+            if not isinstance(response_data, dict) or 'pagination' not in response_data or 'listings' not in response_data:
+                 print(f"Struttura risposta API inattesa: {response_data}")
+                 raise ValueError("Struttura risposta invalida ricevuta dall'API Discogs")
+
+            pagination_api = response_data.get('pagination', {})
+            listings_data = response_data.get('listings', [])
+
+            pagination_info = {
+                'page': pagination_api.get('page', page_num),
+                'pages': pagination_api.get('pages', 0),
+                'per_page': pagination_api.get('per_page', items_per_page),
+                'items': pagination_api.get('count', pagination_api.get('items', 0)),
+                'urls': pagination_api.get('urls', {})
+            }
+
+            print(f"Received response. Paging: {pagination_info}. Listings ('For Sale') in page: {len(listings_data)}")
+
+            for listing_dict in listings_data:
+                try:
+
+                    release_info = listing_dict.get('release', {})
+                    release_id = release_info.get('id')
+                    if not release_id:
+                        continue
+
+                    price_info = listing_dict.get('price', {})
+
+                    stats_path = f"{DISCOGS_MARKETPLACE_STATS_URL}{release_id}"
+                    stats_response = None
+                    stats_error_msg = None
+
+                    try:
+                        stats_response = client._get(stats_path)
+                        time.sleep(1)
+
+                    except discogs_client.exceptions.HTTPError as stats_http_err:
+                        print(f" HTTPError {stats_http_err.status_code} while retrieving stats for release {release_id}: {stats_http_err.msg}")
+                        num_for_sale = None
+                        stats_error_msg = f"Stats not available ({stats_http_err.status_code})"
+                        time.sleep(1)
+
+                    except Exception as stats_e:
+                        print(f" Unexcpected error while retriveing stats for release {release_id}: {stats_e}")
+                        num_for_sale = None
+                        stats_error_msg = f"Error - Stats not availble"
+                        time.sleep(1)
+
+                    else:
+                        num_for_sale = stats_response.get('num_for_sale') if stats_response else None
+
+                    artists_list = release_info.get('artists', [])
+                    artists_str = ", ".join(a.get('name', 'N/A') for a in artists_list) if artists_list else 'N/A'
+
+                    item_data = {
+                        'url': listing_dict.get('uri', listing_dict.get('resource_url')),
+                        'release_id': release_id,
+                        'title': release_info.get('description', 'N/A'), 
+                        'artist': artists_str,
+                        'num_for_sale': num_for_sale,
+                        'price': price_info.get('value'),
+                        'currency': price_info.get('currency'),
+                        'condition': listing_dict.get('condition', 'N/A'),
+                        'sleeve_condition': listing_dict.get('sleeve_condition', 'N/A'),
+                        'id': listing_dict.get('id'),
+                        'status': listing_dict.get('status')
+                    }
+
+                    if stats_error_msg:
+                        item_data['stats_error'] = stats_error_msg
+
+                    output_results.append(item_data)
+
+                except Exception as item_e:
+                    listing_id_str = listing_dict.get('id', 'Unknown')
+                    print(f" Skipping item {listing_id_str} causes error during elaboration: {item_e}")
+                    traceback.print_exc()
+                    output_results.append({'id': listing_id_str,'error': f"Unexpected error while elaborating: {item_e}"})
+
+            return output_results, pagination_info
+
+        except discogs_client.exceptions.HTTPError as http_err:
+             print(f"HTTPError during research for {username} (Page {page_num}): {http_err}")
+             raise http_err
+        
+        except ValueError as val_err:
+             print(f"ValueError during API elaboration: {val_err}")
+             raise val_err
+        
+        except Exception as e:
+            print(f"Unexpected error during research {username} (Pagie {page_num}): {e}")
+            traceback.print_exc()
+            return [], pagination_info
 
     def get(self, request, *args, **kwargs):
 
@@ -273,7 +394,7 @@ class DiscogsSearchView(APIView):
              return Response({ERROR_KEY: "'page' and 'per_page' parameters must be integers."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            output_results, pagination_info = self.searchUserInventory(client, username, page_num, items_per_page)
+            output_results, pagination_info = self.searchUserInventory_API_Filtered(client, username, page_num, items_per_page)
 
             response_data = {
                 'pagination': pagination_info,
