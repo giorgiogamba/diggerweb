@@ -203,6 +203,8 @@ class DiscogsSearchView(APIView):
                     traceback.print_exc()
                     output_results.append({'id': listing_id_str,'error': f"Unexpected error while elaborating: {item_e}"})
 
+            output_results.sort(key=lambda item: item.get('num_for_sale', -1), reverse=False)
+
             return output_results, pagination_info
 
         except discogs_client.exceptions.HTTPError as http_err:
