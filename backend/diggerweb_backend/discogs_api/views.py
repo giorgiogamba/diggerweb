@@ -97,86 +97,205 @@ class DiscogsCallbackView(APIView):
 # Handles Discogs DB researches
 class DiscogsSearchView(APIView):
         
-    def searchUserInventory(self, client, username):
+    def searchUserInventory(self, client, username, page_num, items_per_page):
         print("Searching releases for username " + str(username))
 
         user = client.user(str(username))
         time.sleep(1) # In order to support discogs API restrictions
 
-        releases = {}
-        for listing in user.inventory:
-            releaseId = listing.release.id
+        pagination_details = {
+            'page': page_num,
+            'pages': 0,
+            'per_page': items_per_page,
+            'items': 0,
+            'urls': {}
+        }
 
-            stats_path = f"https://api.discogs.com/marketplace/stats/{releaseId}"
-            stats_response = client._get(stats_path)
+        output_results = []
 
-            releases[listing.url] = stats_response.get('num_for_sale')
+        try:
+            inventory = user.inventory
+            inventory.per_page = items_per_page
 
-            time.sleep(1) # In order to support discogs API restrictions
+            total_pages = inventory.pages
+            total_items = inventory.count
+            actual_per_page = inventory.per_page
 
-        return releases
+            # Use getattr for safe access, returns None if attribute doesn't exist
+            next_url = getattr(inventory, 'next', None)
+            prev_url = getattr(inventory, 'prev', None)
+            last_url = getattr(inventory, 'last', None)
+
+            # Construct the urls dictionary manually based on found attributes
+            page_urls = {}
+            if next_url:
+                page_urls['next'] = next_url
+            if prev_url:
+                page_urls['prev'] = prev_url
+            if last_url:
+                page_urls['last'] = last_url
+
+            pagination_details = {
+                'page': page_num, # The page we *intend* to fetch or are on
+                'pages': total_pages,
+                'per_page': actual_per_page,
+                'items': total_items,
+                'urls': page_urls
+            }
+            print(f"Pagination metadata: {pagination_details}")
+
+            listings_on_page = inventory.page(page_num)
+            print(f"Fetched page {page_num}. Items received: {len(listings_on_page)}")
+
+            for listing in listings_on_page:
+
+                try:
+                    releaseId = listing.release.id
+                    listing_url = listing.url
+
+                    # TODO add caching if going back to prev page
+                    stats_path = f"https://api.discogs.com/marketplace/stats/{releaseId}"
+                    stats_response = client._get(stats_path)
+
+                    num_for_sale = stats_response.get('num_for_sale') if stats_response else None
+
+                    output_results.append({
+                        'url': listing_url,
+                        'release_id': releaseId,
+                        'title': listing.release.title,
+                        'artist': ", ".join(artist.name for artist in listing.release.artists),
+                        'num_for_sale': num_for_sale,
+                        'price': listing.price.value if listing.price else None,
+                        'currency': listing.price.currency if listing.price else None,
+                        'condition': listing.condition,
+                        'sleeve_condition': listing.sleeve_condition,
+                        'id': listing.id
+                    })
+
+                    time.sleep(1)
+
+                except discogs_client.exceptions.DiscogsAPIError as item_api_error:
+                    print(f" Skipping item {listing.id} due to Discogs API error: {item_api_error}")
+
+                    output_results.append({
+                        'url': listing.url if hasattr(listing, 'url') else 'N/A',
+                        'release_id': 'N/A',
+                        'error': f"Could not fetch stats: {item_api_error}"
+                    })
+
+                    time.sleep(1)
+
+                except AttributeError as attr_error:
+                     print(f" Skipping item due to missing attribute (data inconsistency?): {attr_error} on listing ID {listing.id if hasattr(listing, 'id') else 'Unknown'}")
+                     output_results.append({
+                        'url': listing.url if hasattr(listing, 'url') else 'N/A',
+                        'release_id': 'N/A',
+                        'error': f"Data inconsistency: {attr_error}"
+                    })
+                     
+                except Exception as item_e:
+                    print(f" Skipping item {listing.id if hasattr(listing, 'id') else 'Unknown'} due to unexpected error: {item_e}")
+                    traceback.print_exc()
+                    output_results.append({
+                        'url': listing.url if hasattr(listing, 'url') else 'N/A',
+                        'release_id': 'N/A',
+                        'error': f"Unexpected error processing item: {item_e}"
+                    })
+
+                    time.sleep(1)
+
+            return output_results, pagination_details
+
+        except IndexError:
+             # If requested page number is > total pages
+             print(f"Requested page {page_num} is out of range.")
+
+             try:
+                 # Try to get pagination info even if the specific page failed
+                 pagination_details['page'] = page_num
+
+             except Exception as e:
+                 print(f"Could not retrieve pagination details after page index error: {e}")
+
+             return [], pagination_details
 
     def get(self, request, *args, **kwargs):
 
         access_token, access_secret = load_access_token()
 
         if not access_token or not access_secret:
-            return Response({ERROR_KEY: "Discogs authorization required.", "authorize_url": request.build_absolute_uri(reverse(DISCOGS_AUTHORIZE_KEY))}, status=status.HTTP_401_UNAUTHORIZED)
+            auth_url = request.build_absolute_uri(reverse(DISCOGS_AUTHORIZE_KEY))
+            return Response({
+                ERROR_KEY: "Discogs authorization required.",
+                "authorize_url": auth_url
+            }, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Create and authorize new client
         client = discogs_client.Client(APPLICATION_AGENT_NAME)
-
         try:
             client.set_consumer_key(DISCOGS_CONSUMER_KEY, DISCOGS_CONSUMER_SECRET)
             client.set_token(access_token, access_secret)
 
-        except Exception as e:
-            # No credentials, reauthorize
+            # Verify authentication by making a simple call
+            identity = client.identity()
+            print(f"Authenticated as Discogs user: {identity.username}")
+
+        except (discogs_client.exceptions.HTTPError, discogs_client.exceptions.DiscogsAPIError) as auth_error:
+            print(f"Discogs authentication failed: {auth_error}")
+            auth_url = request.build_absolute_uri(reverse(DISCOGS_AUTHORIZE_KEY))
             return Response({
-                ERROR_KEY: f"Invalid or expired Discogs credentials. Please re-authorize. ({e})",
-                "authorize_url": request.build_absolute_uri(reverse(DISCOGS_AUTHORIZE_KEY))
+                ERROR_KEY: f"Invalid or expired Discogs credentials. Please re-authorize. ({auth_error})",
+                "authorize_url": auth_url
             }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        except Exception as e:
+             print(f"Error initializing Discogs client: {e}")
+             traceback.print_exc()
+             return Response({ERROR_KEY: f"Failed to initialize Discogs client: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         username = request.query_params.get('q')
         if not username:
              return Response({ERROR_KEY: "Missing 'q' parameter (username)."}, status=status.HTTP_400_BAD_REQUEST)
-        
+
+        # Get pagination parameters
         try:
-            results = self.searchUserInventory(client, username)
             page_num = int(request.query_params.get('page', 1))
-            items_per_page = 20
+            items_per_page = int(request.query_params.get('per_page', 50))
 
-            output_results = []
+            # Handle edge cases
+            if items_per_page < 1:
+                items_per_page = 1
+            if items_per_page > 100:
+                items_per_page = 100 # Respect Discogs limits (usually 100 max)
+            if page_num < 1:
+                page_num = 1
 
-            for url, items in results.items():
-                item_data = {'url': url, 'items': items}
-                output_results.append(item_data)
+        except ValueError:
+             return Response({ERROR_KEY: "'page' and 'per_page' parameters must be integers."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            output_results, pagination_info = self.searchUserInventory(client, username, page_num, items_per_page)
 
             response_data = {
-                'pagination': {'page': page_num, 'pages': 0, 'per_page': items_per_page, 'items': 0},
+                'pagination': pagination_info,
                 'results': output_results
             }
             return Response(response_data, status=status.HTTP_200_OK)
 
         except discogs_client.exceptions.HTTPError as http_error:
-            if http_error.status_code == 401:
+            status_code = http_error.status_code if hasattr(http_error, 'status_code') else 500
+            if status_code == 401: # Unauthorized during search - token might have been revoked
+                 auth_url = request.build_absolute_uri(reverse(DISCOGS_AUTHORIZE_KEY))
                  return Response({
-                      "error": f"Discogs API authentication error ({http_error.status_code}). Please re-authorize. ({http_error.msg})",
-                      "authorize_url": request.build_absolute_uri(reverse(DISCOGS_AUTHORIZE_KEY))
-                 }, status=http_error.status_code)
+                      ERROR_KEY: f"Discogs API authentication error ({status_code}). Please re-authorize. ({http_error.msg})",
+                      "authorize_url": auth_url
+                 }, status=status_code)
+            elif status_code == 404:
+                 return Response({ERROR_KEY: f"Discogs user '{username}' not found or inventory is private/empty. ({http_error.msg})"}, status=status_code)
             else:
-                 return Response({"error": f"{DISCOGS_API_ERROR} ({http_error.status_code}): {http_error.msg}"}, status=http_error.status_code)
+                 return Response({ERROR_KEY: f"{DISCOGS_API_ERROR} ({status_code}): {http_error.msg}"}, status=status_code)
         except discogs_client.exceptions.DiscogsAPIError as api_error:
-            return Response({"error": f"{DISCOGS_API_ERROR}: {api_error}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({ERROR_KEY: f"{DISCOGS_API_ERROR}: {api_error}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as e:
+            print(f"Unexpected server error during search for user {username}:")
             traceback.print_exc()
-            return Response({"error": "Server internal error during research"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-        except discogs_client.exceptions.HTTPError as http_error:
-            return Response({"error": f"{DISCOGS_API_ERROR} ({http_error.status_code}): {http_error.msg}"}, status=http_error.status_code)
-        except discogs_client.exceptions.DiscogsAPIError as api_error:
-            return Response({"error": f"{DISCOGS_API_ERROR}: {api_error}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        except Exception as e:
-            traceback.print_exc()
-            return Response({"error": "Server internal error during research"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({ERROR_KEY: "Server internal error during research"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
