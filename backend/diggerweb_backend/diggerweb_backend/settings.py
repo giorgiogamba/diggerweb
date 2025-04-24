@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-	'discogs_api.apps.DiscogsApiConfig',
+	'diggerweb_backend.discogs_api.apps.DiscogsApiConfig',
 	'rest_framework',
 	'corsheaders'
 ]
