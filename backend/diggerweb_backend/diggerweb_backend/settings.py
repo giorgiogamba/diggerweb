@@ -80,7 +80,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'diggerweb_backend.wsgi.application'
+WSGI_APPLICATION = 'diggerweb_backend.diggerweb_backend.wsgi.application'
 
 
 # Database
