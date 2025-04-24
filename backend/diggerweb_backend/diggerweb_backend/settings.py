@@ -12,20 +12,20 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 
 from pathlib import Path
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-ENV_FILE = os.path.join(BASE_DIR, '.env')
-if (os.path.isfile(ENV_FILE)):
-    load_dotenv(ENV_FILE)
-else:
-    print(BASE_DIR)
-    print("Error while opening env file")
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
+# Tries to load dotenv file 
+dotenv_path = find_dotenv()
+if dotenv_path:
+    print(f"INFO: Loading environment variables from: {dotenv_path}")
+    load_dotenv(dotenv_path=dotenv_path)
+else:
+    # Questo è normale in produzione o se non usi un file .env
+    print("INFO: No .env file found. Relying on system environment variables.")
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
