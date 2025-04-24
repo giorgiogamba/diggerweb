@@ -62,7 +62,7 @@ MIDDLEWARE = [
 # 3000 React port for CRA, 5274 for Vite
 CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(' ')
 
-ROOT_URLCONF = 'diggerweb_backend.urls'
+ROOT_URLCONF = 'diggerweb_backend.diggerweb_backend.urls'
 
 TEMPLATES = [
     {
