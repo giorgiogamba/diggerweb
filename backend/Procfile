@@ -1,1 +1,1 @@
-web: gunicorn diggerweb_backend.wsgi:application
+web: gunicorn diggerweb_backend.diggerweb_backend.wsgi:application
