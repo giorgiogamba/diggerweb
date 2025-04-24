@@ -1,0 +1,1 @@
+web: gunicorn diggerweb_backend.wsgi:application
