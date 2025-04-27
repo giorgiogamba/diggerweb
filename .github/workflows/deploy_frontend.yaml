@@ -31,9 +31,11 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+        working-directory: ./frontend
 
       - name: Build React app
         run: npm run build
+        working-directory: ./frontend
         env:
           REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL }}
 
