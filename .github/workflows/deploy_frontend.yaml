@@ -39,10 +39,6 @@ jobs:
         env:
           REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL }}
 
-      - name: Create .nojekyll file
-        run: touch ./frontend/build/.nojekyll
-        shell: bash
-
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
