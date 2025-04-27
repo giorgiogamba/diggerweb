@@ -18,5 +18,5 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-	path('api/discogs/', include('discogs_api.urls'))
+	path('api/discogs/', include('diggerweb_backend.discogs_api.urls'))
 ]

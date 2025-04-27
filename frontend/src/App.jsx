@@ -1,11 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import axios from 'axios';
 import './App.css';
+import apiUrl from '../config';
 
-// Points to the Discogs proxy (website backend)
-const BACKEND_BASE_URL = 'http://127.0.0.1:8000/api/discogs'; // Base URL
-const BACKEND_SEARCH_URL = `${BACKEND_BASE_URL}/search/`;
-const BACKEND_AUTHORIZE_URL = `${BACKEND_BASE_URL}/authorize/`;
+const BACKEND_SEARCH_URL = `${apiUrl}/search/`;
+const BACKEND_AUTHORIZE_URL = `${apiUrl}/authorize/`;
 
 // Default items per page to request
 const ITEMS_PER_PAGE = 20;
