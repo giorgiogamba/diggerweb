@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import axios from 'axios';
 import './App.css';
-import apiUrl from './config';
+import apiUrl from '../config.js';
 
-const BACKEND_SEARCH_URL = `${apiUrl}/search/`;
-const BACKEND_AUTHORIZE_URL = `${apiUrl}/authorize/`;
+const BACKEND_SEARCH_URL = apiUrl + '/search/';
+const BACKEND_AUTHORIZE_URL =  apiUrl + '/authorize/';
 
 // Default items per page to request
 const ITEMS_PER_PAGE = 20;
@@ -27,6 +27,9 @@ function App()
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [authorizeUrl, setAuthorizeUrl] = useState(null); // Stores the URL received from backend for authorization
+
+  console.debug(BACKEND_SEARCH_URL)
+  console.debug(BACKEND_AUTHORIZE_URL)
 
   // Function to handle the authorization popup window
   const handleAuthorize = () => {
