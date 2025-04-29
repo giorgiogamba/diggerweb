@@ -31,7 +31,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
 DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['DJANGO_ALLOWED_HOSTS', 'localhost', '127.0.0.1', 'https://diggerweb-backend.onrender.com']
+ALLOWED_HOSTS = ['DJANGO_ALLOWED_HOSTS', 'localhost', '127.0.0.1', 'diggerweb-backend.onrender.com']
 
 # Application definition
 
