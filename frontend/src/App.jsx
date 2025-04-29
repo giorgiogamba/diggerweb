@@ -3,8 +3,8 @@ import axios from 'axios';
 import './App.css';
 import apiUrl from '../config.js';
 
-const BACKEND_SEARCH_URL = apiUrl + '/search/';
-const BACKEND_AUTHORIZE_URL =  apiUrl + '/authorize/';
+const BACKEND_SEARCH_URL = apiUrl + '/api/discogs/search/';
+const BACKEND_AUTHORIZE_URL =  apiUrl + '/api/discogs/authorize/';
 
 // Default items per page to request
 const ITEMS_PER_PAGE = 20;
