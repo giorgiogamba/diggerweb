@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import axios from 'axios';
 import './App.css';
-import apiUrl from '../config';
+import apiUrl from './config';
 
 const BACKEND_SEARCH_URL = `${apiUrl}/search/`;
 const BACKEND_AUTHORIZE_URL = `${apiUrl}/authorize/`;
