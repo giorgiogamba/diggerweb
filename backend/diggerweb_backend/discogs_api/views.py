@@ -225,6 +225,7 @@ class DiscogsSearchView(APIView):
         access_token, access_secret = load_access_token()
 
         if not access_token or not access_secret:
+            print("Authorization data missing. Authroization is needed")
             auth_url = request.build_absolute_uri(reverse(DISCOGS_AUTHORIZE_KEY))
             return Response({
                 ERROR_KEY: "Discogs authorization required.",
@@ -232,6 +233,10 @@ class DiscogsSearchView(APIView):
             }, status=status.HTTP_401_UNAUTHORIZED)
 
         client = discogs_client.Client(APPLICATION_AGENT_NAME)
+        if not client:
+            print("Unable to instantiate Discogs client. Returning...")
+            return
+        
         try:
             client.set_consumer_key(DISCOGS_CONSUMER_KEY, DISCOGS_CONSUMER_SECRET)
             client.set_token(access_token, access_secret)
@@ -254,6 +259,7 @@ class DiscogsSearchView(APIView):
              return Response({ERROR_KEY: f"Failed to initialize Discogs client: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         username = request.query_params.get('q')
+
         if not username:
              return Response({ERROR_KEY: "Missing 'q' parameter (username)."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -296,6 +302,7 @@ class DiscogsSearchView(APIView):
                  return Response({ERROR_KEY: f"{DISCOGS_API_ERROR} ({status_code}): {http_error.msg}"}, status=status_code)
         except discogs_client.exceptions.DiscogsAPIError as api_error:
             return Response({ERROR_KEY: f"{DISCOGS_API_ERROR}: {api_error}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
         except Exception as e:
             print(f"Unexpected server error during search for user {username}:")
             traceback.print_exc()
