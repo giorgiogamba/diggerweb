@@ -32,9 +32,12 @@ function App()
   console.debug(BACKEND_AUTHORIZE_URL)
 
   // Function to handle the authorization popup window
-  const handleAuthorize = () => {
+  const handleAuthorize = () =>
+  {
     if (authorizeUrl)
     {
+      print(authorizeUrl)
+
       const popupWidth = 600;
       const popupHeight = 700;
       const left = (window.screen.width / 2) - (popupWidth / 2);
@@ -94,14 +97,17 @@ function App()
       setResults(response.data.results || []);
       setPagination(response.data.pagination || null);
 
-      if (!response.data.results || response.data.results.length === 0) {
-         if (response.data.pagination && response.data.pagination.items > 0) {
-             setError(`No results found on page ${page}. Total items found: ${response.data.pagination.items}`);
-         } else {
-             setError(NO_RESULTS);
-         }
+      if (!response.data.results || response.data.results.length === 0)
+      {
+        if (response.data.pagination && response.data.pagination.items > 0)
+        {
+          setError(`No results found on page ${page}. Total items found: ${response.data.pagination.items}`);
+        }
+        else
+        {
+          setError(NO_RESULTS);
+        }
       }
-
     }
     catch (err)
     {
@@ -109,7 +115,8 @@ function App()
       setResults([]);
       setPagination(null);
 
-      if (err.response) {
+      if (err.response)
+      {
         console.error("Backend error response:", err.response);
         const errorData = err.response.data;
         const status = err.response.status;
@@ -119,7 +126,8 @@ function App()
           setError(AUTHORIZE_PROMPT);
           setAuthorizeUrl(errorData.authorize_url);
         }
-        else if (status === 404) {
+        else if (status === 404)
+        {
           setError(`Error: User '${trimmedQuery}' not found or inventory is private/empty.`);
         }
         else
@@ -128,7 +136,9 @@ function App()
           setError(`Error: ${errorMsg} (Status: ${status})`);
           setAuthorizeUrl(null);
         }
-      } else {
+      }
+      else
+      {
          setError(`Network Error: ${err.message}`);
          setAuthorizeUrl(null);
       }
@@ -166,7 +176,7 @@ function App()
 
       {authorizeUrl && !loading && (
         <div className="authorization-prompt">
-          <button onClick={handleAuthorize} disabled={loading}>
+          <button onClick={authorizeUrl} disabled={loading}>
             {AUTHORIZE_BUTTON_TEXT}
           </button>
         </div>
